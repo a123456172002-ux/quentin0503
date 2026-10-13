@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作與教學進度管理系統</title>
+  <!-- FullCalendar CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    body { background-color: #f3f4f6; color: #1f2937; }
+
+    /* Header 樣式 */
+    header { background-color: #4338ca; color: white; padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    header h1 { font-size: 1.25rem; font-weight: bold; }
+    header p { font-size: 0.75rem; color: #c7d2fe; }
+
+    /* 頂部頁籤 (Main Nav Tabs - 唯一保留的頁籤列) */
+    .main-nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem 0 1.5rem;
+      background-color: #e0e7ff;
+      border-bottom: 2px solid #c7d2fe;
+    }
+    .nav-tab-btn {
+      padding: 0.6rem 1.25rem;
+      border-radius: 0.75rem 0.75rem 0 0;
+      background-color: #c7d2fe;
+      color: #3730a3;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-tab-btn:hover { background-color: #a5b4fc; }
+    .nav-tab-btn.active {
+      background-color: #f3f4f6;
+      color: #4338ca;
+      box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+    }
+    .tab-page-content.hidden { display: none !important; }
+
+    /* 按鈕樣式 */
+    .btn { padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; border: none; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
+    .btn-amber { background-color: #f59e0b; color: white; }
+    .btn-amber:hover { background-color: #d97706; }
+    .btn-emerald { background-color: #059669; color: white; border: 1px solid #34d399; }
+    .btn-emerald:hover { background-color: #047857; }
+    .btn-indigo { background-color: #4f46e5; color: white; border: 1px solid #818cf8; }
+    .btn-indigo:hover { background-color: #3730a3; }
+    .btn-green { background-color: #10b981; color: white; }
+    .btn-green:hover { background-color: #059669; }
+    .btn-gray { background-color: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; }
+    .btn-gray:hover { background-color: #e5e7eb; }
+    .btn-active { background-color: #4f46e5 !important; color: white !important; }
+
+    /* 主版面佈局 */
+    .main-container { display: grid; grid-template-columns: 1fr; gap: 1.5rem; padding: 1.5rem; max-width: 1500px; margin: 0 auto; }
+    /* 桌機寬螢幕 7:5；平板（1024~1499）右欄固定 340px，月曆讓出更多寬度 */
+    @media (min-width: 1024px) {
+      .main-container { grid-template-columns: minmax(0, 1fr) 340px; }
+    }
+    @media (min-width: 1500px) {
+      .main-container { grid-template-columns: 7fr 5fr; }
+    }
+    /* 平板：月曆工具列、星期標題縮小，不再折行 */
+    @media (min-width: 769px) and (max-width: 1400px) {
+      .main-container { padding: 1rem; gap: 1rem; }
+      .card { padding: 1rem; }
+      .fc .fc-toolbar { flex-wrap: wrap; gap: 0.5rem; }
+      .fc .fc-toolbar-title { font-size: 1.25rem !important; white-space: nowrap; }
+      .fc .fc-button { padding: 0.35rem 0.6rem; font-size: 0.85rem; }
+      .fc .fc-col-header-cell-cushion { padding: 4px 2px; font-size: 0.9rem; line-height: 1.3; text-align: center; }
+      .fc-event { padding: 1px 2px !important; }
+      #calendar { min-height: 560px; }
+    }
+
+    /* 卡片區塊 */
+    .card { background-color: white; padding: 1.25rem; border-radius: 0.75rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); min-width: 0; }
+    .card-title { font-size: 1.125rem; font-weight: bold; color: #1f2937; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .badge { font-size: 0.75rem; padding: 0.25rem 0.625rem; border-radius: 9999px; font-weight: 600; }
+    .badge-rose { background-color: #ffe4e6; color: #be123c; }
+    .badge-indigo { background-color: #e0e7ff; color: #3730a3; }
+    .badge-blue { background-color: #dbeafe; color: #1e40af; }
+
+    /* 全曆 FullCalendar 修正高度與顯示 */
+    .calendar-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #calendar { min-height: 650px; }
+    .fc-day-sun, .fc-day-sat { background-color: #f9fafb; }
+    .fc-event { cursor: pointer; padding: 2px 4px !important; }
+    .fc-daygrid-day-frame { min-height: 100px !important; }
+    .fc-dayGridWeek-view .fc-daygrid-day-frame { min-height: 420px !important; }
+
+    /* 優先權標籤與待辦清單 */
+    .priority-CRITICAL { border-left: 4px solid #ef4444 !important; }
+    .priority-HIGH { border-left: 4px solid #f97316 !important; }
+    .priority-NORMAL { border-left: 4px solid #3b82f6 !important; }
+    .priority-EVENT { border-left: 4px solid #a855f7 !important; }
+
+    .todo-item { padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #e5e7eb; background-color: #f9fafb; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.5rem; }
+    .todo-item:last-child { margin-bottom: 0; }
+
+    /* Modal 彈出視窗 */
+    .modal-overlay { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 50; padding: 1rem; }
+    .modal-content { background-color: white; border-radius: 0.75rem; padding: 1.5rem; width: 100%; max-width: 28rem; max-height: 90vh; overflow-y: auto; overflow-x: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+    .hidden { display: none !important; }
+
+    /* 表單元件 */
+    .form-group { margin-bottom: 1rem; }
+    .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.25rem; }
+    .form-input, .form-select, .form-textarea { display: block; width: 100%; min-width: 0; max-width: 100%; border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.5rem; font-size: 0.875rem; outline: none; background-color: #fff; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); }
+    .form-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem; }
+    .flex-gap { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* 修正：iPad / iPhone Safari 日期欄位寬度超出問題 */
+    input[type="date"].form-input {
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      height: 2.4rem;
+      line-height: 1.2;
+      background-color: #fff;
+      text-align: left;
+    }
+    input[type="date"].form-input::-webkit-date-and-time-value {
+      text-align: left;
+      min-height: 1.2em;
+    }
+    input[type="date"].form-input::-webkit-calendar-picker-indicator {
+      margin-left: auto;
+    }
+    
+    /* 日期與時間容器動態樣式 */
+    .date-period-container { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.75rem; }
+    .date-period-container > div { min-width: 0; }
+    .date-period-container.full-width { display: block; }
+
+    /* 建立 To-Do 勾選框 */
+    .todo-check-box { display: flex; align-items: center; gap: 0.5rem; background-color: #f3f4f6; border-radius: 0.5rem; padding: 0.75rem; cursor: pointer; }
+    .todo-check-box input { width: 1.25rem; height: 1.25rem; cursor: pointer; }
+    .todo-check-box span { font-size: 0.9rem; font-weight: 600; color: #1f2937; }
+
+    /* 月曆卡片固定三行結構 */
+    .fc-event-main div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .calendar-card-container { display: flex; flex-direction: column; width: 100%; overflow: hidden; }
+    .card-row-title { height: 1.3em; line-height: 1.3em; font-size: 0.85rem; font-weight: 600; text-align: left; }
+    .card-row-content { height: 1.2em; line-height: 1.2em; font-size: 0.75rem; text-align: center; opacity: 0.95; }
+    .card-row-period { height: 1.2em; line-height: 1.2em; font-size: 0.7rem; font-weight: 700; text-align: left; }
+    .card-row-period .period-tag { display: inline-block; padding: 0 4px; border-radius: 4px; background-color: rgba(255, 255, 255, 0.28); }
+
+    /* 國定假日文字置中樣式 */
+    .holiday-card { text-align: center !important; font-weight: bold !important; width: 100% !important; display: block !important; }
+
+    /* 手機 / 平板版調整 */
+    @media (max-width: 768px) {
+      header { padding: 0.75rem; }
+      header h1 { font-size: 1.1rem; }
+      header .flex-gap { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      header .btn { padding: 0.75rem 0.5rem; font-size: 0.95rem; }
+
+      .main-container { padding: 0.75rem; gap: 1rem; }
+      .card { padding: 1rem; }
+
+      .card .flex-gap .btn { min-height: 40px; padding: 0.4rem 0.75rem !important; font-size: 0.9rem !important; }
+
+      #calendar { min-width: 640px; min-height: 560px; }
+      .fc .fc-toolbar { flex-wrap: wrap; gap: 0.5rem; }
+      .fc .fc-toolbar-title { font-size: 1.25rem !important; }
+      .fc .fc-button { padding: 0.6rem 0.9rem; font-size: 0.95rem; }
+
+      #todayMeetingList, #todayTodoList, #futureTodoList { max-height: none !important; }
+      .todo-item { padding: 1rem; }
+      .todo-item input[type="checkbox"] { width: 1.7rem !important; height: 1.7rem !important; }
+      .todo-item div { font-size: 1rem; }
+
+      .form-input, .form-select, .form-textarea { font-size: 16px; padding: 0.7rem; }
+      input[type="date"].form-input { height: 3rem; }
+      .modal-overlay { padding: 0.5rem; }
+      .modal-content { max-height: 94vh; padding: 1.25rem; }
+      .btn { min-height: 44px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>工作與教學進度預定系統</h1>
+      <p>專為阿坤打造的全方位工作管理中心</p>
+    </div>
+    <div class="flex-gap">
+      <button onclick="openGenerateModal()" class="btn btn-amber">⚡ 一鍵生成本月課表</button>
+      <a href="https://docs.google.com/spreadsheets/d/18zluUhlcnyGTGcCeGenkke9-3TVoRRMuyYr5v8HnzDE/edit" target="_blank" class="btn btn-emerald">📊 開啟 Google 試算表</a>
+      <button onclick="openHistoryModal()" class="btn btn-indigo">📜 任務總表 / 反悔復原</button>
+      <button onclick="openModal()" class="btn btn-green">+ 新增事項 / 課程 / 會議</button>
+    </div>
+  </header>
+
+  <!-- 唯一保留的頂部頁籤列 -->
+  <div class="main-nav-tabs">
+    <button id="navTabWork" onclick="switchMainTab('work')" class="nav-tab-btn active">📅 工作進度</button>
+    <button id="navTabSchedule" onclick="switchMainTab('schedule')" class="nav-tab-btn">💐 學習進度排課</button>
+    <button id="navTabStamp" onclick="switchMainTab('stamp')" class="nav-tab-btn">🪙 坤章銀行</button>
+  </div>
+
+  <!-- 頁面 1：工作進度 -->
+  <div id="pageWorkTab" class="tab-page-content">
+    <div class="main-container">
+      <!-- 左側：月曆區 -->
+      <div class="card">
+        <div class="flex-gap" style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb; align-items: center;">
+          <span style="font-size: 0.75rem; font-weight: bold; color: #6b7280;">📅 月曆顯示：</span>
+          <button id="calFilterALL" onclick="setCalendarFilter('ALL')" class="btn btn-gray btn-active">全部事項</button>
+          <button id="calFilterMEETING" onclick="setCalendarFilter('MEETING')" class="btn btn-gray">🤝 會議提醒</button>
+          <button id="calFilterTEACHING" onclick="setCalendarFilter('TEACHING')" class="btn btn-gray">🟦 教學／班級</button>
+          <button id="calFilterADMIN" onclick="setCalendarFilter('ADMIN')" class="btn btn-gray">🟧 學校業務</button>
+          <button id="calFilterPROJECT" onclick="setCalendarFilter('PROJECT')" class="btn btn-gray">🟩 個人專案</button>
+          <button id="calFilterPERSONAL" onclick="setCalendarFilter('PERSONAL')" class="btn btn-gray">🟪 個人／雜事</button>
+          <button id="calFilterSYSTEM" onclick="setCalendarFilter('SYSTEM')" class="btn btn-gray">⚙️ 系統管理</button>
+        </div>
+        <div class="calendar-scroll"><div id="calendar"></div></div>
+      </div>
+
+      <!-- 右側：待辦與通知專區 -->
+      <div style="display: flex; flex-direction: column; gap: 1.5rem; min-width: 0;">
+        
+        <!-- 今日會議提醒專區 -->
+        <div class="card" style="border-top: 4px solid #f43f5e;">
+          <div class="card-title">
+            <span>🤝 今日會議提醒</span>
+            <span class="badge badge-rose">今日限定</span>
+          </div>
+          <p style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.75rem;">今日需要參加或主持的會議與開會提醒：</p>
+          <div id="todayMeetingList" style="max-height: 200px; overflow-y: auto;">
+            <p style="font-size: 0.875rem; color: #9ca3af;">資料載入中...</p>
+          </div>
+        </div>
+
+        <!-- 今日 To-Do List -->
+        <div class="card" style="border-top: 4px solid #4f46e5;">
+          <div class="card-title">
+            <span>📍 今日 To-Do List</span>
+            <span class="badge badge-indigo">未完成持續保留</span>
+          </div>
+          <p style="font-size: 0.75rem; color: #9ca3af; margin-bottom: 0.75rem;">只要未勾選完成就會一直保留在此（包含過去積壓事項）。</p>
+          
+          <div class="flex-gap" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
+            <button id="todayFilterALL" onclick="setTodayFilter('ALL')" class="btn btn-gray btn-active" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">全部待辦</button>
+            <button id="todayFilterMEETING" onclick="setTodayFilter('MEETING')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">會議</button>
+            <button id="todayFilterTEACHING" onclick="setTodayFilter('TEACHING')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">教學／備課</button>
+            <button id="todayFilterADMIN" onclick="setTodayFilter('ADMIN')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">學校業務</button>
+            <button id="todayFilterPROJECT" onclick="setTodayFilter('PROJECT')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">個人專案</button>
+            <button id="todayFilterPERSONAL" onclick="setTodayFilter('PERSONAL')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">個人雜事</button>
+            <button id="todayFilterSYSTEM" onclick="setTodayFilter('SYSTEM')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">系統管理</button>
+          </div>
+
+          <div id="todayTodoList" style="max-height: 220px; overflow-y: auto;">
+            <p style="font-size: 0.875rem; color: #9ca3af;">資料載入中...</p>
+          </div>
+        </div>
+
+        <!-- 未來兩週 To-Do List -->
+        <div class="card" style="border-top: 4px solid #3b82f6;">
+          <div class="card-title">
+            <span>🗓️ 未來兩週 To-Do List</span>
+            <span class="badge badge-blue">明日起 14 天</span>
+          </div>
+          <div class="flex-gap" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
+            <button id="filterALL" onclick="setTodoFilter('ALL')" class="btn btn-gray btn-active" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">全部待辦</button>
+            <button id="filterMEETING" onclick="setTodoFilter('MEETING')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">會議</button>
+            <button id="filterTEACHING" onclick="setTodoFilter('TEACHING')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">教學／備課</button>
+            <button id="filterADMIN" onclick="setTodoFilter('ADMIN')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">學校業務</button>
+            <button id="filterPROJECT" onclick="setTodoFilter('PROJECT')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">個人專案</button>
+            <button id="filterPERSONAL" onclick="setTodoFilter('PERSONAL')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">個人雜事</button>
+            <button id="filterSYSTEM" onclick="setTodoFilter('SYSTEM')" class="btn btn-gray" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">系統管理</button>
+          </div>
+          <div id="futureTodoList" style="max-height: 200px; overflow-y: auto;">
+            <p style="font-size: 0.875rem; color: #9ca3af;">資料載入中...</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 頁面 2：學習進度排課 -->
+  <div id="pageScheduleTab" class="tab-page-content hidden">
+    <!-- Planner.html 會自動將內容載入於此處 -->
+  </div>
+
+  <!-- 頁面 3：坤章銀行 -->
+  <div id="pageStampTab" class="tab-page-content hidden">
+    <?!= include('StampBank'); ?>
+  </div>
+
+  <!-- 新增 / 編輯 Modal -->
+  <div id="eventModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 id="modalTitle" style="font-size: 1.125rem; font-weight: bold; margin-bottom: 1rem;">新增 / 編輯事項</h3>
+      <form id="eventForm" onsubmit="handleFormSubmit(event)">
+        <input type="hidden" id="eventId">
+        
+        <div class="form-group">
+          <label class="form-label">分類</label>
+          <select id="eventCategory" onchange="toggleFormFields()" class="form-select">
+            <option value="MEETING">🤝 會議提醒</option>
+            <option value="TEACHING">🟦 教學 / 班級課程</option>
+            <option value="ADMIN">🟧 學校業務</option>
+            <option value="PROJECT">🟩 個人專案 / 創作</option>
+            <option value="PERSONAL">🟪 個人 / 雜事</option>
+            <option value="SYSTEM">⚙️ 系統管理</option>
+          </select>
+        </div>
+
+        <div id="priorityGroup" class="form-group">
+          <label class="form-label">緊急程度</label>
+          <select id="eventPriority" class="form-select">
+            <option value="CRITICAL">🔴 最速件 / 重要會議</option>
+            <option value="HIGH">🟠 速件</option>
+            <option value="NORMAL" selected>🔵 普通</option>
+            <option value="EVENT">🟣 活動</option>
+          </select>
+        </div>
+
+        <div id="datePeriodContainer" class="form-group date-period-container">
+          <div>
+            <label id="dateLabel" class="form-label">日期</label>
+            <input type="date" id="eventDate" required class="form-input">
+          </div>
+          <div id="meetingPeriodGroup" class="hidden">
+            <label class="form-label">節次 / 時間</label>
+            <select id="meetingPeriodSelect" onchange="checkCustomPeriod()" class="form-select">
+              <option value="">-- 請選擇節次 --</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="customTimeGroup" class="form-group hidden">
+          <label class="form-label">自訂會議時間</label>
+          <input type="text" id="customTimeInput" placeholder="例如：10:30 - 11:30" class="form-input">
+        </div>
+
+        <div id="titleSelectGroup" class="form-group">
+          <label id="titleSelectLabel" class="form-label">班級 / 會議主題</label>
+          <select id="eventTitleSelect" class="form-select">
+            <option value="">-- 請選擇 --</option>
+          </select>
+        </div>
+
+        <div id="meetingTitleInputGroup" class="form-group hidden">
+          <label class="form-label">會議名稱</label>
+          <input type="text" id="eventTitleInput" class="form-input" placeholder="例如：領域會議、導師會報" value="">
+        </div>
+
+        <div id="meetingLocationGroup" class="form-group hidden">
+          <label class="form-label">會議地點</label>
+          <select id="meetingLocationSelect" class="form-select">
+            <option value="">-- 請選擇會議地點 --</option>
+          </select>
+        </div>
+
+        <div id="contentGroup" class="form-group">
+          <label class="form-label">具體工作 / 上課內容 (Content)</label>
+          <input type="text" id="eventContent" class="form-input" placeholder="例如：報帳、填寫問卷、U3 L2 講解">
+        </div>
+
+        <div id="createTodoGroup" class="form-group">
+          <label class="todo-check-box">
+            <input type="checkbox" id="eventCreateTodo" checked>
+            <span>建立 To-Do 待辦事項提醒</span>
+          </label>
+        </div>
+        
+        <div id="teachingFields" class="form-group" style="display: none;">
+          <input type="hidden" id="eventHomework" value="">
+          <input type="hidden" id="eventExam" value="">
+        </div>
+
+        <div id="nonTeachingFields" class="form-group hidden">
+          <div style="margin-bottom: 0.75rem;">
+            <label class="form-label">最後完成日</label>
+            <input type="date" id="eventRemindDate" class="form-input">
+            <p class="form-hint">留空則以上方「日期」當作最後完成日。</p>
+          </div>
+          <div>
+            <label class="form-label">提前提醒</label>
+            <select id="eventLeadDays" class="form-select">
+              <option value="0" selected>當天才顯示在今日待辦</option>
+              <option value="1">提前 1 天</option>
+              <option value="3">提前 3 天</option>
+              <option value="7">提前 7 天</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">備註</label>
+          <textarea id="eventNotes" rows="2" class="form-textarea" placeholder="例如：攜帶筆電、列印會議資料"></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.75rem; border-top: 1px solid #e5e7eb;">
+          <button type="button" id="btnDeleteEvent" onclick="handleDeleteEvent()" class="btn" style="background-color: #fee2e2; color: #dc2626; display: none;">🗑 刪除此事項</button>
+          <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+            <button type="button" onclick="closeModal()" class="btn btn-gray">取消</button>
+            <button type="submit" class="btn btn-indigo">儲存</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 生成全月課表 Modal -->
+  <div id="generateModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 20rem;">
+      <h3 style="font-size: 1.125rem; font-weight: bold; margin-bottom: 1rem;">⚡ 批次生成課表</h3>
+    </div>
+  </div>
+
+  <!-- 歷史總表 Modal -->
+  <div id="historyModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 36rem; height: 80vh; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.75rem; margin-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: bold;">📜 任務歷史總表</h3>
+        <button onclick="closeHistoryModal()" style="border: none; background: none; font-size: 1.25rem; cursor: pointer;">&times;</button>
+      </div>
+      <div class="flex-gap" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-bottom: 0.75rem;">
+        <button id="tabPendingTodos" onclick="switchHistoryTab('pendingTodos')" class="btn btn-gray btn-active" style="font-size: 0.75rem;">未完成 To-Do</button>
+        <button id="tabDoneTodos" onclick="switchHistoryTab('doneTodos')" class="btn btn-gray" style="font-size: 0.75rem;">已完成歷史 To-Do</button>
+      </div>
+      <div id="historyContentList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;"></div>
+      <div style="padding-top: 0.75rem; border-top: 1px solid #e5e7eb; margin-top: 0.75rem; text-align: right;">
+        <button onclick="closeHistoryModal()" class="btn btn-gray">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let calendar;
+    let systemData = { courses: [], todos: [], gradings: [], titleOptions: [], locationOptions: [], periodOptions: [], holidays: [], materials: [] };
+    let currentCalendarFilter = 'ALL';
+    let currentTodayFilter = 'ALL';
+    let currentTodoFilter = 'ALL';
+    let currentHistoryTab = 'pendingTodos';
+    let isEditingModalOpen = false;
+    let pendingOps = 0;
+    let lastSig = '';
+
+function switchMainTab(tabName) {
+  if (tabName === 'planner') tabName = 'schedule';
+
+  const pages = {
+    work: document.getElementById('pageWorkTab'),
+    schedule: document.getElementById('pageScheduleTab'),
+    stamp: document.getElementById('pageStampTab')
+  };
+  const btns = { work: 'navTabWork', schedule: 'navTabSchedule', stamp: 'navTabStamp' };
+
+  Object.keys(pages).forEach(function (k) {
+    if (pages[k]) pages[k].classList.toggle('hidden', k !== tabName);
+    const b = document.getElementById(btns[k]);
+    if (b) b.classList.toggle('active', k === tabName);
+  });
+
+  const planner = document.getElementById('plannerView');
+  if (planner) planner.classList.toggle('hidden', tabName !== 'schedule');
+
+  if (tabName === 'work' && calendar) setTimeout(function () { calendar.updateSize(); }, 50);
+  if (tabName === 'schedule' && typeof window.plRefresh === 'function') window.plRefresh();
+  if (tabName === 'stamp' && typeof initStampBank === 'function') initStampBank();
+}
+
+    document.addEventListener('DOMContentLoaded', function() {
+      try { initCalendar(); } catch (e) { console.error('[initCalendar] 發生錯誤：', e); }
+      loadData();
+
+      setInterval(function() {
+        if (isEditingModalOpen || pendingOps > 0 || document.visibilityState !== 'visible') return;
+        try {
+          google.script.run
+            .withSuccessHandler(function(data) {
+              if (!data || !data.courses) return;
+              if (pendingOps > 0 || isEditingModalOpen) return;
+              const sig = JSON.stringify(data);
+              if (sig === lastSig) return;
+              lastSig = sig;
+              renderData(data);
+            })
+            .getInitialData();
+        } catch(e) {
+          console.warn('輪詢防護觸發：', e);
+        }
+      }, 60000);
+    });
+
+    let _prList = null, _prSrc = null;
+    function periodRank(p) {
+      if (!p) return 9999;
+      if (_prSrc !== systemData.periodOptions) {
+        _prSrc = systemData.periodOptions;
+        _prList = (_prSrc || []).map(o => (typeof o === 'object') ? o.name : String(o));
+      }
+      const idx = _prList.indexOf(String(p));
+      return idx > -1 ? idx : 500;
+    }
+
+    function initCalendar() {
+      const calendarEl = document.getElementById('calendar');
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'zh-tw',
+        editable: true,
+        height: 'auto',
+        eventOrder: function(a, b) {
+          const ka = (a.extendedProps && a.extendedProps.sortKey !== undefined) ? a.extendedProps.sortKey : 9999;
+          const kb = (b.extendedProps && b.extendedProps.sortKey !== undefined) ? b.extendedProps.sortKey : 9999;
+          if (ka !== kb) return ka - kb;
+          return String(a.title).localeCompare(String(b.title), 'zh-Hant');
+        },
+        customButtons: {
+          refreshBtn: {
+            text: '🔄 重新整理',
+            click: function() { loadData(); }
+          }
+        },
+        buttonText: { today: '今天', dayGridMonth: '月', dayGridWeek: '週' },
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek refreshBtn' },
+        dayHeaderContent: function(arg) {
+          if (arg.view.type === 'dayGridWeek') {
+            const wd = ['日', '一', '二', '三', '四', '五', '六'][arg.date.getDay()];
+            return { html: '<div>' + (arg.date.getMonth() + 1) + '/' + arg.date.getDate() + '<br><span style="font-size:0.85em;color:#6b7280">週' + wd + '</span></div>' };
+          }
+          return arg.text;
+        },
+
+        eventContent: function(arg) {
+          let customEl = document.createElement('div');
+          
+          if (arg.event.extendedProps.isHoliday) {
+            customEl.className = 'holiday-card';
+            customEl.textContent = arg.event.title;
+            return { domNodes: [customEl] };
+          }
+
+          customEl.className = 'calendar-card-container';
+          let titleText = arg.event.extendedProps.customTitle || arg.event.title;
+          let contentText = arg.event.extendedProps.customContent || '';
+          let periodText = arg.event.extendedProps.period || '';
+
+          let periodHtml = periodText ? `<span class="period-tag">${periodText}</span>` : '&nbsp;';
+          let contentHtml = contentText ? `[${contentText}]` : '&nbsp;';
+
+          customEl.innerHTML = `
+            <div class="card-row-title">${titleText}</div>
+            <div class="card-row-content">${contentHtml}</div>
+            <div class="card-row-period">${periodHtml}</div>
+          `;
+
+          return { domNodes: [customEl] };
+        },
+
+        eventDrop: function(info) {
+          if (info.event.extendedProps.isHoliday) return;
+          google.script.run
+            .withSuccessHandler(function(data) { renderData(data); })
+            .withFailureHandler(function(err) { alert('更新失敗：' + err.message); loadData(); })
+            .updateCourseDate(info.event.id, info.event.startStr);
+        },
+        dateClick: function(info) { openModal(info.dateStr); },
+        eventClick: function(info) {
+          if (info.event.extendedProps.isHoliday) return;
+          const course = systemData.courses.find(c => String(c.id) === String(info.event.id));
+          if (course) editCourseModal(course);
+        }
+      });
+      calendar.render();
+    }
+
+    function loadData() {
+      const t0 = performance.now();
+      google.script.run
+        .withSuccessHandler(function(data) {
+          const t1 = performance.now();
+          renderData(data);
+          console.log('伺服器回應 ' + Math.round(t1 - t0) + ' ms，畫面重繪 ' + Math.round(performance.now() - t1) + ' ms');
+        })
+        .withFailureHandler(function(err) { alert('載入失敗：' + err.message); })
+        .getInitialData();
+    } 
+
+    function setCalendarFilter(filter) {
+      currentCalendarFilter = filter;
+      ['ALL', 'MEETING', 'TEACHING', 'ADMIN', 'PROJECT', 'PERSONAL', 'SYSTEM'].forEach(cat => {
+        const btn = document.getElementById('calFilter' + cat);
+        if (btn) {
+          if (cat === filter) btn.classList.add('btn-active');
+          else btn.classList.remove('btn-active');
+        }
+      });
+      renderCalendarEvents();
+    }
+
+    function safeRun(fn, label) {
+      try { fn(); } catch (e) { console.error('[' + label + '] 發生錯誤：', e); }
+    }
+
+    function renderData(data) {
+      if (!data) return;
+      systemData = data;
+
+      safeRun(function() {
+        updateSelectOptions('meetingLocationSelect', data.locationOptions || [], '-- 請選擇會議地點 --');
+        updateSelectOptions('meetingPeriodSelect', data.periodOptions || [], '-- 請選擇節次 --');
+      }, 'selectOptions');
+
+      if (!isEditingModalOpen) safeRun(toggleFormFields, 'toggleFormFields');
+      safeRun(renderCalendarEvents, 'renderCalendarEvents');
+      safeRun(renderTodayMeetings, 'renderTodayMeetings');
+      safeRun(renderTodos, 'renderTodos');
+      safeRun(function() {
+        if (!document.getElementById('historyModal').classList.contains('hidden')) {
+          renderHistoryList();
+        }
+      }, 'renderHistoryList');
+
+      if (calendar) {
+        setTimeout(function() {
+          try { calendar.updateSize(); } catch (e) { console.error('[calendar.updateSize] 發生錯誤：', e); }
+        }, 100);
+      }
+    }
+
+    function updateSelectOptions(elementId, options, placeholder, autoSelectIfSingle = true) {
+      const select = document.getElementById(elementId);
+      if (!select) return;
+
+      const currentValue = select.value;
+      select.innerHTML = `<option value="">${placeholder}</option>`;
+
+      options.forEach(opt => {
+        const el = document.createElement('option');
+        el.value = (typeof opt === 'object') ? opt.name : opt;
+        el.textContent = (typeof opt === 'object') ? opt.name : opt;
+        select.appendChild(el);
+      });
+
+      if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+        select.value = currentValue;
+      } else if (autoSelectIfSingle && options.length === 1) {
+        const singleVal = (typeof options[0] === 'object') ? options[0].name : options[0];
+        select.value = singleVal;
+      } else {
+        select.value = "";
+      }
+    }
+
+    function renderCalendarEvents() {
+      if (!calendar) return;
+
+      calendar.batchRendering(function() {
+        calendar.removeAllEvents();
+
+        if (systemData.holidays) {
+          systemData.holidays.forEach(h => {
+            calendar.addEvent({
+              title: h.name,
+              start: h.date,
+              backgroundColor: '#fef2f2',
+              borderColor: '#fca5a5',
+              textColor: '#dc2626',
+              editable: false,
+              extendedProps: { sortKey: -2, isHoliday: true }
+            });
+          });
+        }
+
+        if (!systemData.courses) return;
+
+        let filtered = systemData.courses;
+        if (currentCalendarFilter !== 'ALL') {
+          filtered = systemData.courses.filter(c => c.category === currentCalendarFilter);
+        }
+
+        filtered.forEach(c => {
+          let color = '#3b82f6';
+          if (c.category === 'MEETING') color = '#e11d48';
+          if (c.category === 'ADMIN') color = '#f97316';
+          if (c.category === 'PROJECT') color = '#10b981';
+          if (c.category === 'PERSONAL') color = '#a855f7';
+          if (c.category === 'SYSTEM') color = '#6b7280';
+
+          calendar.addEvent({
+            id: c.id,
+            title: c.title,
+            start: cleanDateStr(c.date),
+            backgroundColor: color,
+            borderColor: color,
+            extendedProps: {
+              customTitle: c.title,
+              customContent: c.content || '',
+              period: c.period || '',
+              sortKey: periodRank(c.period),
+              isHoliday: false
+            }
+          });
+        });
+      });
+    }
+
+    function renderTodayMeetings() {
+      const container = document.getElementById('todayMeetingList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const todayStr = formatDateStr(new Date());
+
+      const todayMeetings = systemData.courses ? systemData.courses.filter(c => {
+        return c.category === 'MEETING' && cleanDateStr(c.date) === todayStr;
+      }).sort((a, b) => periodRank(a.period) - periodRank(b.period)) : [];
+
+      if (todayMeetings.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.875rem; color: #9ca3af;">🎉 今日無會議安排！</p>';
+        return;
+      }
+
+      todayMeetings.forEach(m => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #fecdd3; background-color: #fff1f2; display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;';
+
+        const metaParts = [];
+        if (m.period) metaParts.push('⏰ ' + m.period);
+        if (m.location) metaParts.push('📍 ' + m.location);
+
+        div.innerHTML = `
+          <div style="color: #e11d48; font-weight: bold; margin-top: 2px;">🤝</div>
+          <div style="flex: 1;">
+            <div style="font-size: 0.875rem; font-weight: bold; color: #881337;">${m.content || m.title}</div>
+            ${metaParts.length ? `<div style="font-size: 0.75rem; color: #be123c; margin-top: 0.25rem;">${metaParts.join(' ')}</div>` : ''}
+            ${m.notes ? `<div style="font-size: 0.75rem; color: #9f1239; margin-top: 0.25rem;">${m.notes}</div>` : ''}
+          </div>
+        `;
+
+        container.appendChild(div);
+      });
+    }
+
+    function cleanDateStr(d) {
+      if (!d) return '';
+      return String(d).substring(0, 10);
+    }
+
+    function formatDateStr(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function daysBetween(fromStr, toStr) {
+      const a = new Date(fromStr + 'T00:00:00');
+      const b = new Date(toStr + 'T00:00:00');
+      return Math.round((b - a) / 86400000);
+    }
+
+    function isTrue(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }
+
+    function getDeadlineStr(t) {
+      return cleanDateStr(t.deadline) || cleanDateStr(t.targetDate);
+    }
+
+    function getDeadlineBadge(t, todayStr) {
+      const dl = getDeadlineStr(t);
+      const diff = daysBetween(todayStr, dl);
+      if (diff < 0) return { text: `⚠️ 已逾期 ${-diff} 天`, bg: '#fee2e2', color: '#b91c1c' };
+      if (diff === 0) return { text: '🔥 今日截止', bg: '#ffedd5', color: '#c2410c' };
+      return { text: `⏳ 還剩 ${diff} 天`, bg: '#e0e7ff', color: '#3730a3' };
+    }
+
+    function setTodayFilter(filter) {
+      currentTodayFilter = filter;
+      ['ALL', 'MEETING', 'TEACHING', 'ADMIN', 'PROJECT', 'PERSONAL', 'SYSTEM'].forEach(cat => {
+        const btn = document.getElementById('todayFilter' + cat);
+        if (btn) {
+          if (cat === filter) btn.classList.add('btn-active');
+          else btn.classList.remove('btn-active');
+        }
+      });
+      renderTodos();
+    }
+
+    function setTodoFilter(filter) {
+      currentTodoFilter = filter;
+      ['ALL', 'MEETING', 'TEACHING', 'ADMIN', 'PROJECT', 'PERSONAL', 'SYSTEM'].forEach(cat => {
+        const btn = document.getElementById('filter' + cat);
+        if (btn) {
+          if (cat === filter) btn.classList.add('btn-active');
+          else btn.classList.remove('btn-active');
+        }
+      });
+      renderTodos();
+    }
+
+    function applyTypeFilter(list, filter) {
+      if (filter === 'TEACHING') return list.filter(t => t.type === 'TEACHING' || t.type === 'AUTO_PREP');
+      if (filter !== 'ALL') return list.filter(t => t.type === filter);
+      return list;
+    }
+
+    function sortByDeadline(list) {
+      return list.slice().sort((a, b) => getDeadlineStr(a).localeCompare(getDeadlineStr(b)));
+    }
+
+    function createTodoItem(t, todayStr) {
+      const badge = getDeadlineBadge(t, todayStr);
+
+      const div = document.createElement('div');
+      div.className = `todo-item priority-${t.priority || 'NORMAL'}`;
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.style.cssText = 'width: 1.25rem; height: 1.25rem; margin-top: 2px; cursor: pointer;';
+      checkbox.onclick = function(e) {
+        e.stopPropagation();
+        toggleTodo(t.id, this.checked);
+      };
+
+      const contentDiv = document.createElement('div');
+      contentDiv.style.cssText = 'flex: 1; cursor: pointer;';
+      contentDiv.onclick = function() {
+        checkbox.checked = !checkbox.checked;
+        toggleTodo(t.id, checkbox.checked);
+      };
+
+      contentDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.25rem;">
+          <div style="font-size: 0.875rem; font-weight: 600; color: #1f2937;">${t.content}</div>
+          <span style="font-size: 0.625rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background-color: ${badge.bg}; color: ${badge.color}; white-space: nowrap;">${badge.text}</span>
+        </div>
+        <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem;">最後完成日: ${getDeadlineStr(t)}</div>
+      `;
+
+      div.appendChild(checkbox);
+      div.appendChild(contentDiv);
+      return div;
+    }
+
+    function renderTodos() {
+      const todayContainer = document.getElementById('todayTodoList');
+      const futureContainer = document.getElementById('futureTodoList');
+      if (!todayContainer || !futureContainer) return;
+
+      todayContainer.innerHTML = '';
+      futureContainer.innerHTML = '';
+
+      if (!systemData.todos || systemData.todos.length === 0) {
+        todayContainer.innerHTML = '<p style="font-size: 0.875rem; color: #9ca3af;">目前無待辦事項！</p>';
+        futureContainer.innerHTML = '<p style="font-size: 0.875rem; color: #9ca3af;">目前無待辦事項！</p>';
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const todayStr = formatDateStr(today);
+
+      const fourteenDaysLater = new Date(today);
+      fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14);
+      const limitStr = formatDateStr(fourteenDaysLater);
+
+      const uncompletedTodos = systemData.todos.filter(t => !isTrue(t.isCompleted));
+
+      let todayList = uncompletedTodos.filter(t => cleanDateStr(t.targetDate) <= todayStr);
+      todayList = sortByDeadline(applyTypeFilter(todayList, currentTodayFilter));
+
+      if (todayList.length === 0) {
+        todayContainer.innerHTML = '<p style="font-size: 0.875rem; color: #9ca3af;">🎉 目前無積壓或今日待辦事項！</p>';
+      } else {
+        todayList.forEach(t => todayContainer.appendChild(createTodoItem(t, todayStr)));
+      }
+
+      let futureList = uncompletedTodos.filter(t => {
+        const d = cleanDateStr(t.targetDate);
+        return d > todayStr && d <= limitStr;
+      });
+      futureList = sortByDeadline(applyTypeFilter(futureList, currentTodoFilter));
+
+      if (futureList.length === 0) {
+        futureContainer.innerHTML = '<p style="font-size: 0.875rem; color: #9ca3af;">未來兩週無規劃事項！</p>';
+      } else {
+        futureList.forEach(t => futureContainer.appendChild(createTodoItem(t, todayStr)));
+      }
+    }
+
+    function toggleTodo(id, isChecked) {
+      const todo = systemData.todos.find(t => String(t.id) === String(id));
+      if (todo) todo.isCompleted = isChecked;
+
+      renderTodos();
+
+      pendingOps++;
+      google.script.run
+        .withSuccessHandler(function() { pendingOps--; })
+        .withFailureHandler(function(err) {
+          pendingOps--;
+          alert('同步失敗：' + err.message);
+          if (todo) todo.isCompleted = !isChecked;
+          renderTodos();
+        })
+        .toggleTodoStatus(id, isChecked);
+    }
+    
+    function closeGenerateModal() { document.getElementById('generateModal').classList.add('hidden'); }
+
+    function openHistoryModal() {
+      document.getElementById('historyModal').classList.remove('hidden');
+      switchHistoryTab('pendingTodos');
+    }
+
+    function closeHistoryModal() { document.getElementById('historyModal').classList.add('hidden'); }
+
+    function switchHistoryTab(tabName) {
+      currentHistoryTab = tabName;
+      ['tabPendingTodos', 'tabDoneTodos'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          if (id === 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)) btn.classList.add('btn-active');
+          else btn.classList.remove('btn-active');
+        }
+      });
+      renderHistoryList();
+    }
+
+    function renderHistoryList() {
+      const container = document.getElementById('historyContentList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      let list = [];
+      let isDone = false;
+
+      if (currentHistoryTab === 'pendingTodos') {
+        list = systemData.todos ? systemData.todos.filter(t => !isTrue(t.isCompleted)) : [];
+      } else if (currentHistoryTab === 'doneTodos') {
+        list = systemData.todos ? systemData.todos.filter(t => isTrue(t.isCompleted)) : [];
+        isDone = true;
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.875rem; color: #9ca3af; padding: 1rem 0; text-align: center;">沒有符合條件的項目！</p>';
+        return;
+      }
+
+      list.forEach(item => {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; display: flex; align-items: center; justify-content: space-between; background-color: #f9fafb;';
+        
+        const titleText = item.content;
+        const dateText = `最後完成日: ${getDeadlineStr(item)}`;
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = isDone;
+        checkbox.style.cssText = 'width: 1.25rem; height: 1.25rem; cursor: pointer;';
+        checkbox.onclick = function(e) {
+          e.stopPropagation();
+          toggleTodo(item.id, this.checked);
+        };
+
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; flex: 1;';
+        infoDiv.appendChild(checkbox);
+
+        const textDiv = document.createElement('div');
+        textDiv.innerHTML = `
+          <div style="font-size: 0.875rem; font-weight: 600; ${isDone ? 'text-decoration: line-through; color: #9ca3af;' : 'color: #1f2937;'}">${titleText}</div>
+          <div style="font-size: 0.75rem; color: #9ca3af;">${dateText}</div>
+        `;
+        infoDiv.appendChild(textDiv);
+
+        div.appendChild(infoDiv);
+        container.appendChild(div);
+      });
+    }
+
+    function openModal(dateStr = '') {
+      isEditingModalOpen = true;
+      document.getElementById('modalTitle').innerText = '新增事項 / 課程 / 會議';
+      document.getElementById('eventForm').reset();
+      document.getElementById('eventId').value = '';
+      document.getElementById('eventCreateTodo').checked = true;
+      document.getElementById('eventLeadDays').value = '0';
+      document.getElementById('btnDeleteEvent').style.display = 'none';
+      if (dateStr) document.getElementById('eventDate').value = dateStr;
+      toggleFormFields();
+      document.getElementById('eventModal').classList.remove('hidden');
+    }
+
+    function editCourseModal(course) {
+      isEditingModalOpen = true;
+      document.getElementById('modalTitle').innerText = '編輯事項 / 課程 / 會議';
+      document.getElementById('eventId').value = course.id;
+      document.getElementById('eventCategory').value = course.category || 'TEACHING';
+      document.getElementById('eventPriority').value = course.priority || 'NORMAL';
+      document.getElementById('eventDate').value = cleanDateStr(course.date);
+      document.getElementById('eventCreateTodo').checked = true;
+      
+      toggleFormFields();
+
+      if (course.category === 'MEETING') {
+        document.getElementById('eventTitleInput').value = course.content || '';
+        document.getElementById('meetingLocationSelect').value = course.location || '';
+      } else {
+        document.getElementById('eventTitleSelect').value = course.title || '';
+        document.getElementById('eventContent').value = course.content || '';
+      }
+
+      const sel = document.getElementById('meetingPeriodSelect');
+      if (course.period) {
+        if (!Array.from(sel.options).some(o => o.value === course.period)) {
+          const extra = document.createElement('option');
+          extra.value = course.period;
+          extra.textContent = course.period;
+          sel.appendChild(extra);
+        }
+        sel.value = course.period;
+      } else {
+        sel.value = '';
+      }
+      checkCustomPeriod();
+
+      document.getElementById('eventNotes').value = course.notes || '';
+      document.getElementById('eventRemindDate').value = cleanDateStr(course.remindDate);
+      document.getElementById('eventLeadDays').value = String(course.leadDays || 0);
+      document.getElementById('btnDeleteEvent').style.display = 'block';
+      document.getElementById('eventModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      isEditingModalOpen = false;
+      document.getElementById('eventModal').classList.add('hidden');
+    }
+
+    function handleDeleteEvent() {
+      const id = document.getElementById('eventId').value;
+      if (!id) return;
+
+      if (confirm('確定要刪除這筆事項嗎？（連帶產生的待辦卡片也會一併清理）')) {
+        closeModal();
+        google.script.run
+          .withSuccessHandler(data => { renderData(data); })
+          .withFailureHandler(err => { alert('刪除失敗：' + err.message); loadData(); })
+          .deleteCourseEvent(id);
+      }
+    }
+
+    function checkCustomPeriod() {
+      const val = document.getElementById('meetingPeriodSelect').value;
+      const customGroup = document.getElementById('customTimeGroup');
+      if (val === '自訂時間') {
+        customGroup.classList.remove('hidden');
+      } else {
+        customGroup.classList.add('hidden');
+      }
+    }
+
+    function filterTitleOptions(allOptions, cat) {
+      const getName = o => (typeof o === 'object' && o !== null) ? String(o.name || '') : String(o);
+      const getCat = o => (typeof o === 'object' && o !== null) ? String(o.category || '').trim().toUpperCase() : '';
+
+      const byCategory = allOptions.filter(o => getCat(o) === cat);
+      if (byCategory.length > 0) return byCategory;
+
+      const keywords = {
+        TEACHING: ['英語', '團建', '分組', '導師班', 'TF'],
+        MEETING: ['會議', '研習'],
+        ADMIN: ['業務'],
+        PROJECT: ['人間師格', '專案'],
+        PERSONAL: ['雜事', '個人'],
+        SYSTEM: ['系統', '維護']
+      };
+      const kws = keywords[cat] || [];
+      return allOptions.filter(o => {
+        const name = getName(o);
+        return kws.some(k => name.includes(k));
+      });
+    }
+
+    function toggleFormFields() {
+      const cat = document.getElementById('eventCategory').value;
+      const priorityGroup = document.getElementById('priorityGroup');
+      const nonTeachingFields = document.getElementById('nonTeachingFields');
+      const contentGroup = document.getElementById('contentGroup');
+      const createTodoGroup = document.getElementById('createTodoGroup');
+      const meetingPeriodGroup = document.getElementById('meetingPeriodGroup');
+      const meetingLocationGroup = document.getElementById('meetingLocationGroup');
+      const titleSelectGroup = document.getElementById('titleSelectGroup');
+      const titleSelectLabel = document.getElementById('titleSelectLabel');
+      const meetingTitleInputGroup = document.getElementById('meetingTitleInputGroup');
+      const datePeriodContainer = document.getElementById('datePeriodContainer');
+
+      priorityGroup.classList.remove('hidden');
+      contentGroup.classList.remove('hidden');
+      createTodoGroup.classList.remove('hidden');
+      titleSelectGroup.classList.remove('hidden');
+      meetingTitleInputGroup.classList.add('hidden');
+      meetingPeriodGroup.classList.add('hidden');
+      meetingLocationGroup.classList.add('hidden');
+      document.getElementById('customTimeGroup').classList.add('hidden');
+      datePeriodContainer.classList.add('full-width');
+
+      titleSelectLabel.innerText = "班級 / 會議主題";
+      if (cat === 'TEACHING') titleSelectLabel.innerText = "班級 / 課程";
+      if (cat === 'PROJECT') titleSelectLabel.innerText = "專案 / 影片名稱";
+
+      const allOptions = systemData.titleOptions || [];
+      const categoryFilteredOptions = filterTitleOptions(allOptions, cat);
+
+      updateSelectOptions('eventTitleSelect', categoryFilteredOptions, '-- 請選擇 --', true);
+
+      if (cat === 'MEETING') {
+        priorityGroup.classList.add('hidden');
+        contentGroup.classList.add('hidden');
+        createTodoGroup.classList.add('hidden');
+        nonTeachingFields.classList.add('hidden');
+        titleSelectGroup.classList.add('hidden');
+
+        meetingTitleInputGroup.classList.remove('hidden');
+        meetingLocationGroup.classList.remove('hidden');
+        meetingPeriodGroup.classList.remove('hidden');
+        datePeriodContainer.classList.remove('full-width');
+
+      } else if (cat === 'TEACHING') {
+        priorityGroup.classList.add('hidden');
+        nonTeachingFields.classList.add('hidden');
+
+        meetingPeriodGroup.classList.remove('hidden');
+        datePeriodContainer.classList.remove('full-width');
+
+      } else {
+        nonTeachingFields.classList.remove('hidden');
+
+        if (cat === 'ADMIN') {
+          meetingPeriodGroup.classList.remove('hidden');
+          datePeriodContainer.classList.remove('full-width');
+        }
+      }
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const cat = document.getElementById('eventCategory').value;
+
+      let finalTitle = '';
+      let finalContent = document.getElementById('eventContent').value;
+      const finalNotes = document.getElementById('eventNotes').value;
+      let periodText = '';
+      let locationVal = '';
+
+      if (!document.getElementById('meetingPeriodGroup').classList.contains('hidden')) {
+        const periodVal = document.getElementById('meetingPeriodSelect').value;
+        const customTime = document.getElementById('customTimeInput').value;
+        periodText = (periodVal === '自訂時間' && customTime) ? customTime : periodVal;
+        if (periodText === '自訂時間') periodText = '';
+      }
+
+      if (cat === 'MEETING') {
+        finalTitle = '校務/領域會議';
+        finalContent = document.getElementById('eventTitleInput').value || '會議';
+        locationVal = document.getElementById('meetingLocationSelect').value;
+      } else {
+        finalTitle = document.getElementById('eventTitleSelect').value;
+      }
+
+      const eventData = {
+        id: document.getElementById('eventId').value,
+        category: cat,
+        priority: document.getElementById('eventPriority').value,
+        date: document.getElementById('eventDate').value,
+        title: finalTitle,
+        content: finalContent,
+        homework: '',
+        exam: '',
+        notes: finalNotes,
+        period: periodText,
+        location: locationVal,
+        remindDate: document.getElementById('eventRemindDate').value,
+        leadDays: Number(document.getElementById('eventLeadDays').value) || 0,
+        createTodo: cat !== 'MEETING' && document.getElementById('eventCreateTodo').checked
+      };
+
+      closeModal();
+
+      google.script.run
+        .withSuccessHandler(data => { renderData(data); })
+        .withFailureHandler(err => { alert('儲存失敗：' + err.message); loadData(); })
+        .saveCourseEvent(eventData);
+    }
+  </script>
+
+  <!-- 引入模組（必須在上方主 script 之後，Planner 會包裝 renderData） -->
+  <?!= include('Planner'); ?>
+  <script>
+    // 把排課畫面搬進「學習進度排課」分頁容器
+    (function () {
+      var holder = document.getElementById('pageScheduleTab');
+      var pv = document.getElementById('plannerView');
+      if (holder && pv) holder.appendChild(pv);
+    })();
+  </script>
+  <?!= include('Mobile'); ?>
+</body>
+</html>
